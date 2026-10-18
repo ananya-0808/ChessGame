@@ -2,6 +2,9 @@
 
 import pygame as p
 import ChessEngine
+import SmartMoveFinder
+
+
 WIDTH = HEIGHT = 512
 DIMENSION = 8 #dimensions of a chess board are 8x8
 SQ_SIZE = HEIGHT // DIMENSION
@@ -27,50 +30,91 @@ def main():
     gs = ChessEngine.GameState()
     validMoves = gs.getValidMoves()
     moveMade = False #flag variable for when a move is made
+    animate = False #flag variable for when we should animate a move
     loadImages() #only do this once, before the while loop
     running = True 
     sqSelected = () #no square is selected, keeps tracks of the last click of the user (tuple: row, column)
     playerClicks = [] #keeps track of player clicks (two tuples: [(row1, column1), (row2, column2)])
+    gameOver = False
+    playerOne = True #If a human is playing white, this will be true, if an AI is playing than this will be false
+    playerTwo = False #same as above for black
     while running:
+        humanTurn = (gs.whiteToMove and playerOne) or (not gs.whiteToMove and playerTwo)
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
             #mouse handler
             elif e.type == p.MOUSEBUTTONDOWN:
-                location = p.mouse.get_pos() #(x, y) location of the mouse
-                col = location[0]//SQ_SIZE
-                row = location[1]//SQ_SIZE
-                if sqSelected == (row, col): #the user selected the same square twice
-                    sqSelected = () #deselect
-                    playerClicks = [] #clear player clicks
-                else:
-                    sqSelected = (row, col)
-                    playerClicks.append(sqSelected) #append for both first and second clicks
-                if len(playerClicks) == 1 and gs.board[row][col] == "--":
-                    sqSelected = ()
-                    playerClicks = []
-                if len(playerClicks) == 2: #after the 2nd click
-                    move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
-                    print(move.getChessNotation())
-                    for i in range(len(validMoves)):
-                        if move == validMoves[i]:
-                            gs.makeMove(move)
-                            moveMade = True
-                            sqSelected = () #resets players clicks
-                            playerClicks = []
-                    if not moveMade:
-                        playerClicks = [sqSelected]
+                if not gameOver and humanTurn:
+                    location = p.mouse.get_pos() #(x, y) location of the mouse
+                    col = location[0]//SQ_SIZE
+                    row = location[1]//SQ_SIZE
+                    if sqSelected == (row, col): #the user selected the same square twice
+                        sqSelected = () #deselect
+                        playerClicks = [] #clear player clicks
+                    else:
+                        sqSelected = (row, col)
+                        playerClicks.append(sqSelected) #append for both first and second clicks
+                    if len(playerClicks) == 1 and gs.board[row][col] == "--":
+                        sqSelected = ()
+                        playerClicks = []
+                    if len(playerClicks) == 2: #after the 2nd click
+                        move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
+                        print(move.getChessNotation())
+                        for i in range(len(validMoves)):
+                            if move == validMoves[i]:
+                                gs.makeMove(move)
+                                moveMade = True
+                                moveMade = True
+                                sqSelected = () #resets players clicks
+                                playerClicks = []
+                        if not moveMade:
+                            playerClicks = [sqSelected]
             #key handlers
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z: #undo when 'z' is pressed
                     gs.undoMove()
                     moveMade = True
+                    animate = False
+                    gameOver = False
+                if e.key == p.K_r: #reset the board when 'r' is pressed
+                    gs = ChessEngine.GameState()
+                    validMoves = gs.getValidMoves()
+                    sqSelected = ()
+                    playerClicks = []
+                    moveMade = False
+                    animate = False
+                    gameOver = False
+        
+        #AI move finder
+        if not gameOver and not humanTurn:
+            AIMove = SmartMoveFinder.findRandomMove(validMoves)
+            gs.makeMove(AIMove)
+            moveMade = True
+            animate = True
+
+
+
         if moveMade:
-            animateMove(gs.moveLog[-1], screen, gs.board, clock)
+            if animate:
+                animateMove(gs.moveLog[-1], screen, gs.board, clock)
             validMoves = gs.getValidMoves()
             moveMade = False
-            
+            animate = False
+
         drawGameState(screen, gs, validMoves, sqSelected)
+
+        if gs.checkmate:
+            gameOver = True 
+            if gs.whiteToMove:
+                drawText(screen, 'Black wins by checkmate')
+            else:
+                drawText(screen, 'White wins by checkmate')
+        elif gs.stalemate:
+            gameOver= True
+            drawText(screen, 'Stalemate')
+
+
         clock.tick(MAX_FPS)
         p.display.flip()
 
@@ -135,6 +179,14 @@ def animateMove(move, screen, board, clock):
         screen.blit(IMAGES[move.pieceMoved], p.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
         p.display.flip()
         clock.tick(60)
+
+def drawText(screen, text):
+    font = p.font.SysFont("Helvetica", 32, False)
+    textObject = font.render(text, 0, p.Color('Gray'))
+    textLocation = p.Rect(0, 0, WIDTH, HEIGHT).move(WIDTH/2 - textObject.get_width()/2, HEIGHT/2 - textObject.get_height()/2)
+    screen.blit(textObject, textLocation)
+    textObject = font.render(text, 0, p.Color('Black'))
+    screen.blit(textObject, textLocation.move(2, 2))
 
 if __name__ == "__main__":
     main()

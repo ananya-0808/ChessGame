@@ -22,9 +22,8 @@ class GameState():
         self.moveLog = []
         self.whiteKingLocation = (7, 4)
         self.blackKingLocation = (0, 4)
-        self.checkMate = False
-        self.checkMate = False
-        self.staleMate = False
+        self.checkmate = False
+        self.stalemate = False
         self.enpassantPossible = () #coordinates for the square where the empassent capture is possible
         self.currentCastlingRight = CastleRights(True, True, True, True)
         self.castleRightsLog = [CastleRights(self.currentCastlingRight.wks, self.currentCastlingRight.bks, 
@@ -89,7 +88,7 @@ class GameState():
             #undo the enpassant move
             if move.isEnpassantMove:
                 self.board[move.endRow][move.endCol] = '--' #leave landing square blank
-                self.board[move.startRow][move.startCol] = move.pieceCaptured
+                self.board[move.startRow][move.endCol] = move.pieceCaptured
                 self.enpassantPossible = (move.endRow, move.endCol)
             #undo 2 square pawn advance
             if move.pieceMoved[1] == 'p' and abs(move.startRow - move.endRow) == 2:
@@ -127,9 +126,6 @@ class GameState():
 
     #All moves consider checks
     def getValidMoves(self):
-        for log in self.castleRightsLog:
-            print(log.wks, log.wqs, log.bks, log.bqs, end = ", " )
-        print()
         tempEnpassantPossible = self.enpassantPossible
         tempCastleRights = CastleRights(self.currentCastlingRight.wks, self.currentCastlingRight.bks,
                                         self.currentCastlingRight.wqs, self.currentCastlingRight.bqs) #copy the current castling right
@@ -152,12 +148,13 @@ class GameState():
             self.undoMove()
         if len(moves) == 0: #either checkmate or stalemate
             if self.inCheck():
-                self.checkMate = True
+                self.checkmate = True
             else:
-                self.staleMate = True
+                self.stalemate = True
 
         
         self.enpassantPossible = tempEnpassantPossible
+        self.currentCastlingRight = tempCastleRights
         return moves
     
     #Determine if the current player is in check
